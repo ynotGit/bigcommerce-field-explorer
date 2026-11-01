@@ -1,0 +1,33 @@
+{
+  "name": "bc-field-explorer",
+  "version": "0.1.0",
+  "description": "See every custom field and metafield in a BigCommerce catalog, and the products, variants, categories and brands that have each one.",
+  "type": "module",
+  "bin": {
+    "field-explorer": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "assets",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepare": "npm run build",
+    "test": "npm run build && node test/smoke.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "typescript": "^5.5.0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  }
+}

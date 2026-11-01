@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field explorer</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --ground: #f7f8f8;
+    --surface: #ffffff;
+    --ink: #17212b;
+    --muted: #5d6a74;
+    --line: #dce1e4;
+    --line-strong: #c3ccd1;
+    --focus: #2c63d6;
+    --cf: #0e7a73;
+    --mf: #6a4cc0;
+    --variant: #2b62b8;
+    --category: #9a5b13;
+    --brand: #b0306a;
+    --danger: #b3261e;
+    --danger-tint: #fcecea;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #12171c;
+      --surface: #192027;
+      --ink: #e6ebee;
+      --muted: #9aa7b0;
+      --line: #2a343c;
+      --line-strong: #3b4751;
+      --focus: #7aa5ff;
+      --cf: #52c4b8;
+      --mf: #ad93fb;
+      --variant: #7eaaf5;
+      --category: #e0a560;
+      --brand: #f084b4;
+      --danger: #ff8a80;
+      --danger-tint: rgba(255, 138, 128, 0.12);
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 15px/1.5 var(--sans); }
+  button, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  /* ---- Header ---- */
+  .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 20px; padding: 16px 28px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .top h1 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
+  .top h1 a { color: inherit; text-decoration: none; }
+  .store { color: var(--muted); }
+  .store strong { color: var(--ink); font-weight: 600; }
+  .freshness { margin-left: auto; display: flex; align-items: baseline; gap: 10px; color: var(--muted); font-size: 14px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 28px 56px; }
+
+  /* ---- Controls ---- */
+  .btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 14px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); cursor: pointer; white-space: nowrap; }
+  .btn:hover { border-color: var(--muted); }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  .link { border: 0; background: none; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; font-size: 14px; }
+  .link:hover { color: var(--ink); }
+  .message { margin: 0 0 16px; padding: 10px 14px; border-radius: 6px; white-space: pre-wrap; }
+  .message.error { background: var(--danger-tint); color: var(--danger); }
+  .empty { color: var(--muted); max-width: 70ch; }
+
+  /* ---- Tables ---- */
+  .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  .products .table-wrap { max-height: 72vh; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+  th, td { padding: 8px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  tbody tr:last-child td { border-bottom: 0; }
+  th { position: sticky; top: 0; z-index: 1; background: var(--surface); font-weight: 600; white-space: nowrap; box-shadow: inset 0 -1px 0 var(--line-strong); }
+  th.field-col { box-shadow: inset 0 -3px 0 var(--kind); }
+  th button { display: inline-flex; gap: 6px; align-items: baseline; padding: 0; border: 0; background: none; font-weight: inherit; cursor: pointer; }
+  th .arrow { color: var(--muted); font-size: 12px; min-width: 10px; }
+  .products tbody tr:hover td { background: var(--ground); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.t-id { color: var(--muted); font-variant-numeric: tabular-nums; }
+  td.t-mono { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+  td.role-title { min-width: 180px; }
+  td.c-options { color: var(--muted); }
+  td .v + .v { margin-top: 2px; }
+  .badge { display: inline-block; margin: 0 4px 2px 0; padding: 0 7px; border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-size: 13px; white-space: nowrap; }
+  .visible-text { color: var(--muted); }
+
+  /* ---- Every field ---- */
+  .fields-head { margin-bottom: 22px; }
+  .fields-head p { margin: 12px 0 0; max-width: 70ch; color: var(--muted); }
+  .fields-head p strong { color: var(--ink); font-weight: 600; }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .toolbar .btn { margin-left: auto; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---- Filtering the field list ---- */
+  .filter { position: relative; flex: 1 1 320px; max-width: 540px; }
+  .filter input { width: 100%; min-height: 42px; padding: 8px 40px 8px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; }
+  .filter input::placeholder { color: var(--muted); }
+  .filter kbd { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 4px; color: var(--muted); font: 12px/1.5 var(--mono); pointer-events: none; }
+  .filter input:focus + kbd, .filter input:not(:placeholder-shown) + kbd { display: none; }
+  .fields-head .filter-status { margin-top: 8px; font-size: 14px; }
+  .filter-status:empty { display: none; }
+  mark { padding: 0 1px; border-radius: 2px; background: color-mix(in srgb, var(--kind, var(--focus)) 24%, transparent); color: inherit; }
+  .field-group { margin-bottom: 30px; }
+  .field-group h2 { margin: 0 0 10px; padding-left: 10px; border-left: 4px solid var(--kind); font-size: 17px; font-weight: 650; }
+  .mf { --kind: var(--mf); }
+  .cf { --kind: var(--cf); }
+  .variant { --kind: var(--variant); }
+  .category { --kind: var(--category); }
+  .brand { --kind: var(--brand); }
+  .footnote { margin: -10px 0 0; color: var(--muted); font-size: 14px; max-width: 70ch; }
+  td.ns { color: var(--muted); font-family: var(--mono); font-size: 13px; }
+  td.key { min-width: 9em; }
+  .field-link { color: var(--kind); font-weight: 600; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
+  .field-link:hover { text-decoration-color: currentColor; }
+  .also-small { display: block; color: var(--muted); font-size: 12px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; min-width: 18em; }
+  .example { display: inline-flex; align-items: baseline; gap: 6px; max-width: 28ch; padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--ground); color: inherit; font-size: 13px; text-decoration: none; }
+  a.example:hover { border-color: var(--kind); }
+  .example .text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .example .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .example.blank { font-style: italic; color: var(--muted); }
+  .empty-value { font-style: italic; color: var(--muted); }
+  .chip[aria-pressed="true"] .empty-value { color: inherit; }
+
+  /* ---- One field ---- */
+  .crumbs { margin: 0 0 6px; font-size: 14px; }
+  .crumbs a { color: var(--muted); text-underline-offset: 2px; }
+  .crumbs a:hover { color: var(--ink); }
+  .field-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 4px; }
+  .field-title h2 { margin: 0; font-size: 24px; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+  .field-title .what { color: var(--kind); font-weight: 600; }
+  .also { margin: 0 0 4px; color: var(--muted); font-size: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 6px; }
+  .chip { display: inline-flex; align-items: baseline; gap: 8px; max-width: 32ch; min-height: 34px; padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: 17px; background: var(--surface); cursor: pointer; }
+  .chip .text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip .n { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+  .chip:hover { border-color: var(--kind); }
+  .chip[aria-pressed="true"] { border-color: var(--kind); background: var(--kind); color: var(--surface); }
+  .chip[aria-pressed="true"] .n { color: inherit; opacity: 0.85; }
+  .chip.blank { cursor: default; font-style: italic; color: var(--muted); }
+  .more { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  .products { margin-top: 22px; }
+  .products-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 12px; }
+  .count { margin: 0; font-size: 17px; font-weight: 600; }
+  .count .of { color: var(--muted); font-weight: 400; }
+  .downloads { margin-left: auto; display: flex; gap: 8px; }
+  .hint { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+  .sort-by { display: none; align-items: center; gap: 10px; width: 100%; color: var(--muted); font-size: 14px; }
+  .sort-by select { flex: 1; min-width: 0; min-height: 42px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 15px; }
+
+  /* ---- Phones and narrow windows: every table row becomes a card ---- */
+  @media (max-width: 800px) {
+    .top { padding: 12px 16px; }
+    .freshness { margin-left: 0; flex-wrap: wrap; column-gap: 12px; }
+    .freshness .link { padding: 8px 0; white-space: nowrap; }
+    main { padding: 16px 16px 40px; }
+
+    .toolbar .btn, .downloads { margin-left: 0; width: 100%; }
+    .filter { flex-basis: 100%; max-width: none; }
+    .filter input { min-height: 46px; font-size: 16px; } /* 16px stops phones zooming in on the box */
+    .filter kbd { display: none; }
+    .sort-by select { font-size: 16px; }
+    .toolbar .btn, .downloads .btn { justify-content: center; min-height: 44px; }
+    .downloads .btn { flex: 1; }
+    .count { width: 100%; }
+    .sort-by { display: flex; }
+    .crumbs { margin: -8px 0 2px; }
+    .crumbs a { display: inline-block; padding: 8px 0; }
+    .chip { min-height: 42px; align-items: center; }
+
+    .table-wrap { overflow: visible; border: 0; border-radius: 0; background: none; }
+    .products .table-wrap { max-height: none; }
+    .table-wrap table, .table-wrap tbody { display: block; }
+    .table-wrap thead { display: none; }
+    .table-wrap tbody tr { position: relative; display: grid; gap: 4px 12px; margin-bottom: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+    .table-wrap td { display: block; min-width: 0; padding: 0; border: 0; }
+    .table-wrap td:empty { display: none; }
+    .products tbody tr:hover td { background: none; }
+
+    /* A field: its name and counts, then its values. The whole card opens the field; each value opens that value. */
+    .field-group tbody tr { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "key count" "ns values" "examples examples"; }
+    .field-group.cf tbody tr { grid-template-areas: "key count" "key values" "examples examples"; }
+    .field-group td.key { grid-area: key; overflow-wrap: anywhere; }
+    .field-group td.ns { grid-area: ns; }
+    .field-group td.count-n { grid-area: count; font-weight: 600; }
+    .field-group td.values-n { grid-area: values; color: var(--muted); }
+    .field-group td.count-n::after, .field-group td.values-n::after { content: " " attr(data-unit); font-weight: 400; }
+    .field-group td.examples-cell { grid-area: examples; margin-top: 8px; }
+    .field-link { font-size: 16px; }
+    .field-link::after { content: ""; position: absolute; inset: 0; border-radius: 8px; }
+    .field-group tbody tr:has(.field-link:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .field-link:focus-visible { outline: none; }
+    .examples { position: relative; z-index: 1; min-width: 0; gap: 8px; }
+    .example { min-height: 38px; align-items: center; max-width: 100%; padding: 4px 12px; border-radius: 19px; font-size: 14px; }
+    .example.blank { pointer-events: none; }
+
+    /* An item: its name and price, then the rest on one line (SKU, ID, options, sale price), then the field's values. */
+    .products tbody tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+    .products td.role-title { flex: 1 1 60%; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+    .products td.role-price { margin-left: auto; font-weight: 600; }
+    .products td:not(.role-title):not(.role-price):not(.t-values):not(.t-status) { order: 2; }
+    .products td.t-mono { white-space: normal; overflow-wrap: anywhere; }
+    .products td[data-prefix]::before { content: attr(data-prefix); }
+    .products td.c-sale { margin-left: auto; color: var(--muted); }
+    .products td.t-values { order: 3; flex-basis: 100%; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+    .products td.t-values::before { content: attr(data-label); display: block; margin-bottom: 2px; color: var(--kind); font-size: 12px; font-weight: 600; }
+    .products td.t-status { order: 4; flex-basis: 100%; }
+    .products td.t-status:not(:has(.badge)) { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1><a href="#">Field explorer</a></h1>
+  <span class="store" id="store">Connecting…</span>
+  <span class="freshness"><span id="freshness" aria-live="polite"></span><button class="link" id="refresh" type="button" hidden>Read the catalog again</button></span>
+</header>
+
+<main>
+  <p class="message error" id="error" role="alert" hidden></p>
+  <div id="list"></div>
+  <div id="field" hidden></div>
+</main>
+
+<script>
+(() => {
+  const SHOW_ROWS = 1000;
+  const LIST_VALUES = 5;
+
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, props = {}, ...children) => {
+    const node = Object.assign(document.createElement(tag), props);
+    for (const child of children.flat()) if (child !== null && child !== undefined && child !== false && child !== '') node.append(child);
+    return node;
+  };
+  /** Replaces a node's contents, leaving out anything empty, as el does. */
+  const fill = (node, ...children) => node.replaceChildren(...children.flat().filter((c) => c !== null && c !== undefined && c !== false && c !== ''));
+  const number = (n) => n.toLocaleString('en-GB');
+  const price = (n) => (n === null ? '' : n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 4 }));
+
+  let state = { tool: 'field-explorer' };
+  let summary = null;       // every field in the catalog, until it is read again
+  let summaryLoading = null;
+  let readAt = null;
+  let open = null;          // the field whose page is open: { group, field, show }
+  let items = null;         // what that page is showing
+  let sort = { column: null, direction: 1 };
+
+  const capital = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+
+  // ---- Talking to the tool -------------------------------------------------------
+  async function api(path, body) {
+    const res = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `The page did not answer (${res.status}). Is ${state.tool} start still running?`);
+    }
+    return res;
+  }
+
+  function showError(message) {
+    $('error').textContent = message || '';
+    $('error').hidden = !message;
+  }
+
+  function saveBlob(blob, name) {
+    const link = el('a', { href: URL.createObjectURL(blob), download: name });
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  }
+
+  // ---- Where we are: the address says which field is open, so Back and bookmarks work ----
+  // Nothing (or #fields) lists every field. #field/<kind>/<namespace>/<key> is a field's page,
+  // kind being mf (product metafield), cf (custom field, with no namespace), variant, category
+  // or brand, with ?value=<value> or ?missing=1 for one value or the items without it.
+  const fieldHash = (kind, namespace, name, show) => {
+    const query = show?.value !== undefined ? `?value=${encodeURIComponent(show.value)}` : show?.missing ? '?missing=1' : '';
+    return `#field/${kind}/${encodeURIComponent(namespace || '')}/${encodeURIComponent(name)}${query}`;
+  };
+
+  function route() {
+    showError('');
+    const m = /^#field\/(mf|cf|variant|category|brand)\/([^/]*)\/([^?]+)(?:\?(.*))?$/.exec(location.hash);
+    if (!m) return showList();
+    const query = new URLSearchParams(m[4] || '');
+    const show = query.has('value') ? { value: query.get('value') } : query.get('missing') ? { missing: true } : { set: true };
+    openField(m[1], decodeURIComponent(m[2]), decodeURIComponent(m[3]), show);
+  }
+
+  // ---- Every field ------------------------------------------------------------------------
+  function loadSummary() {
+    summaryLoading ||= (async () => {
+      renderFreshness();
+      try {
+        const res = await api('/api/summary', {});
+        summary = await res.json();
+        readAt = new Date(summary.readAt);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        summaryLoading = null;
+        renderFreshness();
+      }
+    })();
+    return summaryLoading;
+  }
+
+  async function showList() {
+    $('field').hidden = true;
+    $('list').hidden = false;
+    document.title = `Field explorer: ${state.env || ''}`;
+    if (!summary) {
+      fill($('list'), el('p', { className: 'empty', textContent: 'Reading every custom field and metafield from your store. For a large catalog this takes a little while; after that, everything here is instant.' }));
+      await loadSummary();
+      if (!summary) return fill($('list'));
+    }
+    renderList();
+  }
+
+  /** A count, with the word a card shows after it on a phone: "7 products". */
+  function counted(className, n, one, many) {
+    const td = el('td', { className: `num ${className}`, textContent: number(n) });
+    td.dataset.unit = n === 1 ? one : many;
+    return td;
+  }
+
+  /**
+   * Phones lay tables out as cards, and a browser then stops treating them as
+   * tables. Saying so outright keeps them tables to a screen reader.
+   */
+  function tableRoles(table) {
+    table.setAttribute('role', 'table');
+    table.querySelectorAll('thead, tbody').forEach((group) => group.setAttribute('role', 'rowgroup'));
+    table.querySelectorAll('tr').forEach((row) => row.setAttribute('role', 'row'));
+    table.querySelectorAll('th').forEach((cell) => cell.setAttribute('role', 'columnheader'));
+    table.querySelectorAll('td').forEach((cell) => cell.setAttribute('role', 'cell'));
+    return table;
+  }
+
+  /** A value as a chip shows it. An empty value is a value too, and says so. */
+  const valueLabel = (value) => el('span', { className: value === '' ? 'text empty-value' : 'text', textContent: value === '' ? 'empty' : value });
+
+  function fieldTable(group) {
+    const { kind, fields } = group;
+    const metafield = kind !== 'cf';
+    const headers = [...(metafield ? ['Namespace', 'Key'] : ['Name']), capital(group.many), 'Values', 'Most common values'];
+    const thead = el('thead', {}, el('tr', {}, headers.map((h, i) => el('th', { scope: 'col', className: i >= headers.length - 3 && i < headers.length - 1 ? 'num' : '', textContent: h }))));
+    const body = el('tbody', {}, fields.map((f) => {
+      const examples = f.top.slice(0, LIST_VALUES).map((t) => el('a', {
+        className: 'example',
+        href: fieldHash(kind, f.namespace, f.name, { value: t.value }),
+        title: t.value === '' ? `${capital(group.many)} where ${f.name} is set but empty` : `${capital(group.many)} where ${f.name} is ${t.value}`,
+      }, valueLabel(t.value), el('span', { className: 'n', textContent: number(t.count) })));
+      const more = f.values - Math.min(LIST_VALUES, f.top.length);
+      const ns = metafield ? el('td', { className: 'ns', textContent: f.namespace }) : null;
+      const link = el('a', { className: 'field-link', href: fieldHash(kind, f.namespace, f.name), title: `${capital(group.many)} with ${f.name}`, textContent: f.name });
+      const row = el('tr', {},
+        ns,
+        el('td', { className: 'key' }, link, f.spellings ? el('span', { className: 'also-small', textContent: `also ${f.spellings.slice(1).join(', ')}` }) : null),
+        counted('count-n', f.count, group.one, group.many),
+        counted('values-n', f.values, 'value', 'values'),
+        el('td', { className: 'examples-cell' }, el('div', { className: 'examples' }, examples, more > 0 ? el('span', { className: 'example blank', textContent: `+${number(more)} more` }) : null)));
+      // What the filter matches against, and where it marks what matched.
+      filterable.set(row, { field: f, ns, link, text: [f.namespace ?? '', f.name, ...(f.spellings ?? [])].join(' ').toLowerCase() });
+      return row;
+    }));
+    return el('div', { className: 'table-wrap' }, tableRoles(el('table', {}, thead, body)));
+  }
+
+  const groupOf = (kind) => summary.groups.find((g) => g.kind === kind);
+
+  // ---- Filtering the field list ------------------------------------------------------------
+  // Typing narrows the list to the fields whose key, name or namespace hold every word typed.
+  // What was typed is kept while a field is open, so Back returns to the same short list.
+  let filterText = '';
+  let firstMatch = null;
+  const filterable = new Map(); // each field's row, and what it is matched on
+
+  const wordsOf = (text) => text.toLowerCase().split(/[\s./:]+/).filter(Boolean);
+
+  /** Shows text with every place a word appears in it marked. */
+  function marked(node, text, words) {
+    const lower = text.toLowerCase();
+    const spans = [];
+    for (const w of words) {
+      for (let i = lower.indexOf(w); i !== -1; i = lower.indexOf(w, i + w.length)) spans.push([i, i + w.length]);
+    }
+    spans.sort((a, b) => a[0] - b[0]);
+    const parts = [];
+    let at = 0;
+    for (const [start, end] of spans) {
+      if (end <= at) continue;
+      const from = Math.max(start, at);
+      if (from > at) parts.push(text.slice(at, from));
+      parts.push(el('mark', { textContent: text.slice(from, end) }));
+      at = end;
+    }
+    parts.push(text.slice(at));
+    fill(node, parts);
+  }
+
+  function applyFilter() {
+    const words = wordsOf(filterText);
+    let matches = 0;
+    firstMatch = null;
+    for (const section of $('list').querySelectorAll('.field-group')) {
+      let here = 0;
+      for (const row of section.querySelectorAll('tbody tr')) {
+        const f = filterable.get(row);
+        if (!f) continue;
+        const match = words.every((w) => f.text.includes(w));
+        row.hidden = !match;
+        marked(f.link, f.field.name, match ? words : []);
+        if (f.ns) marked(f.ns, f.field.namespace, match ? words : []);
+        if (match) {
+          here++;
+          firstMatch ??= f.link;
+        }
+      }
+      // While filtering, a section with nothing that matches is left out altogether.
+      section.hidden = words.length > 0 && here === 0;
+      matches += here;
+    }
+    const status = $('filter-status');
+    if (status) {
+      status.textContent = !words.length ? ''
+        : matches ? `${number(matches)} ${matches === 1 ? 'field matches' : 'fields match'}. Press Enter to open ${matches === 1 ? 'it' : 'the first'}.`
+        : `No fields match “${filterText.trim()}”. The filter looks at keys, names and namespaces.`;
+    }
+  }
+
+  /** A line a screen reader reads out when it changes, without interrupting. */
+  const politely = (node) => { node.setAttribute('aria-live', 'polite'); return node; };
+
+  function filterBox() {
+    const input = el('input', {
+      id: 'filter', type: 'search', value: filterText, autocomplete: 'off', spellcheck: false,
+      placeholder: 'Filter by key, name or namespace',
+      oninput: () => { filterText = input.value; applyFilter(); },
+      onkeydown: (event) => {
+        if (event.key === 'Enter' && firstMatch) {
+          event.preventDefault();
+          location.hash = firstMatch.getAttribute('href');
+        } else if (event.key === 'Escape') {
+          if (input.value) { input.value = ''; filterText = ''; applyFilter(); } else input.blur();
+        }
+      },
+    });
+    input.setAttribute('aria-describedby', 'filter-status');
+    return el('div', { className: 'filter', role: 'search' },
+      el('label', { className: 'visually-hidden', htmlFor: 'filter', textContent: 'Filter fields' }),
+      input,
+      el('kbd', { title: 'Press / to filter', textContent: '/' }));
+  }
+
+  function renderList() {
+    const [mf, cf, variant, category, brand] = ['mf', 'cf', 'variant', 'category', 'brand'].map(groupOf);
+    const strong = (text) => el('strong', { textContent: text });
+    const others = [variant, category, brand].filter((g) => g.withAny > 0).map((g) => `${number(g.withAny)} of ${number(g.total)} ${g.many}`);
+    const intro = el('p', {},
+      strong(`${number(mf.withAny)} of ${number(mf.total)} products`), ' have metafields and ', strong(number(cf.withAny)), ' have custom fields.',
+      others.length ? ` ${new Intl.ListFormat('en-GB').format(others)} have metafields too.` : '',
+      ' Choose a field, or one of its values, to see what has it.');
+    const section = (g) => el('section', { className: `field-group ${g.kind}` },
+      el('h2', { textContent: g.title }),
+      g.fields.length ? fieldTable(g)
+        : el('p', { className: 'empty', textContent: g.kind === 'cf' ? 'No products have custom fields.' : `No ${g.one} metafields that this API account can read.` }));
+    intro.className = 'intro';
+    filterable.clear();
+    fill($('list'),
+      el('div', { className: 'fields-head' },
+        el('div', { className: 'toolbar' }, filterBox(), el('button', { className: 'btn', type: 'button', textContent: 'Download CSV', onclick: downloadList })),
+        politely(el('p', { className: 'filter-status', id: 'filter-status' })),
+        intro),
+      summary.groups.map(section),
+      el('p', { className: 'footnote', textContent: 'Metafields an app keeps private to itself (permission "app_only") can only be read by that app, so they do not show up here.' }));
+    applyFilter();
+  }
+
+  function downloadList() {
+    const cell = (v) => (/[",\r\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+    const rows = [['type', 'on', 'namespace', 'name', 'count', 'values', 'most_common_values']];
+    for (const g of summary.groups) {
+      for (const f of g.fields) {
+        rows.push([g.kind === 'cf' ? 'custom field' : 'metafield', g.many, f.namespace || '', f.name, f.count, f.values, f.top.map((t) => `${t.value} (${t.count})`).join(' | ')]);
+      }
+    }
+    saveBlob(new Blob(['\uFEFF' + rows.map((r) => r.map(cell).join(',')).join('\n') + '\n'], { type: 'text/csv' }), `fields-${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+
+  // ---- One field's products, variants, categories or brands -----------------------------------
+  async function openField(kind, namespace, name, show) {
+    $('list').hidden = true;
+    $('field').hidden = false;
+    if (!summary) {
+      fill($('field'), el('p', { className: 'empty', textContent: 'Reading the catalog…' }));
+      await loadSummary();
+      if (!summary) return fill($('field'));
+    }
+    const group = groupOf(kind);
+    const field = group.fields.find((f) => f.name.toLowerCase() === name.toLowerCase() && (kind === 'cf' || (f.namespace || '').toLowerCase() === namespace.toLowerCase()));
+    if (!field) {
+      fill($('field'),
+        el('p', { className: 'crumbs' }, el('a', { href: '#', textContent: 'All fields' })),
+        el('p', { className: 'empty', textContent: `No ${group.one} has ${kind === 'cf' ? `a custom field ${name}` : `a metafield ${name} in ${namespace}`}. If it was added since the catalog was read, read it again.` }));
+      return;
+    }
+    const sameField = open && open.group.kind === kind && open.field === field;
+    open = { group, field, show };
+    if (!sameField) {
+      items = null;
+      sort = { column: null, direction: 1 };
+    }
+    renderField();
+    await loadItems();
+  }
+
+  function renderField() {
+    const { group, field: f, show } = open;
+    const kind = group.kind;
+    const view = $('field');
+    view.className = kind;
+    document.title = `${f.name}: field explorer`;
+    const chip = (label, count, pressed, target, title) => {
+      const button = el('button', { className: 'chip', type: 'button', title,
+        // Changing what is shown replaces the address rather than adding to it, so Back returns to the list.
+        onclick: () => { history.replaceState(null, '', fieldHash(kind, f.namespace, f.name, target)); route(); } },
+        typeof label === 'string' ? el('span', { className: 'text', textContent: label }) : label, el('span', { className: 'n', textContent: number(count) }));
+      button.setAttribute('aria-pressed', String(pressed));
+      return button;
+    };
+    const chosen = (value) => show.value !== undefined && show.value.toLowerCase() === value.toLowerCase();
+    const chips = [
+      chip(`With ${f.name}`, f.count, Boolean(show.set), undefined, `Every ${group.one} that has ${f.name}`),
+      ...f.top.map((t) => chip(valueLabel(t.value), t.count, chosen(t.value), { value: t.value },
+        t.value === '' ? `${capital(group.many)} where ${f.name} is set but empty` : `${capital(group.many)} where ${f.name} is ${t.value}`)),
+      chip(`Without ${f.name}`, Math.max(0, group.total - f.count), Boolean(show.missing), { missing: true }, `${capital(group.many)} that do not have ${f.name}`),
+    ];
+    const what = kind === 'cf' ? 'Product custom field' : `${capital(group.one)} metafield in ${f.namespace}`;
+    fill(view,
+      el('p', { className: 'crumbs' }, el('a', { href: '#', textContent: 'All fields' })),
+      el('div', { className: 'field-title' }, el('h2', { textContent: f.name }), el('span', { className: 'what', textContent: what })),
+      f.spellings ? el('p', { className: 'also', textContent: `Also spelt ${f.spellings.slice(1).join(', ')} in places. Spellings that differ only in case are counted together.` }) : null,
+      el('div', { className: 'chips', role: 'group', ariaLabel: 'Show' }, chips),
+      f.values > f.top.length ? el('p', { className: 'more', textContent: `${number(f.values)} different values; these are the ${f.top.length} most common.` }) : null,
+      // What is listed stays on screen while another chip's items load, so nothing jumps.
+      $('products') || el('section', { className: 'products', id: 'products', ariaLabel: capital(group.many) }));
+  }
+
+  const request = () => ({
+    kind: open.group.kind,
+    namespace: open.field.namespace,
+    name: open.field.name,
+    ...(open.show.value !== undefined ? { value: open.show.value } : {}),
+    ...(open.show.missing ? { missing: true } : {}),
+  });
+
+  let variantsRead = false;
+
+  async function loadItems() {
+    const box = $('products');
+    const { group } = open;
+    box.setAttribute('aria-busy', 'true');
+    if (!items) {
+      const first = group.kind === 'variant' && !variantsRead;
+      fill(box, el('p', { className: 'empty', textContent: first ? 'Reading every variant from your store. For a large catalog this takes a little while, the first time only.' : `Finding the ${group.many}…` }));
+    }
+    try {
+      const res = await api('/api/items', request());
+      items = await res.json();
+      if (group.kind === 'variant') variantsRead = true;
+      readAt = new Date(items.readAt);
+      renderFreshness();
+      renderItems();
+    } catch (err) {
+      showError(err.message);
+      fill(box);
+    } finally {
+      box.removeAttribute('aria-busy');
+    }
+  }
+
+  /** What a cell sorts by: numbers for IDs and prices, how many flags for a status, text for the rest. */
+  function sortValue(column, value) {
+    if (column.type === 'id' || column.type === 'price') return typeof value === 'number' ? value : -1;
+    if (column.type === 'status') return Array.isArray(value) ? value.length : 0;
+    if (Array.isArray(value)) return value.join(' ').toLowerCase();
+    return String(value ?? '').toLowerCase();
+  }
+
+  function sortWords(column) {
+    if (column.type === 'id' || column.type === 'price') return ['low to high', 'high to low'];
+    if (column.type === 'status') return column.heading === 'Visibility' ? ['visible first', 'hidden first'] : ['unflagged first', 'flagged first'];
+    return ['A to Z', 'Z to A'];
+  }
+
+  function cell(column, value) {
+    const classes = [`t-${column.type}`, `c-${column.key}`, column.role ? `role-${column.role}` : '', column.type === 'price' ? 'num' : ''].filter(Boolean).join(' ');
+    let td;
+    if (column.type === 'values') {
+      td = el('td', { className: classes }, (value || []).map((v) => el('div', { className: v === '' ? 'v empty-value' : 'v', textContent: v === '' ? 'empty' : v })));
+      td.dataset.label = column.heading; // the heading a phone's card shows above the values
+    } else if (column.type === 'status') {
+      const badges = Array.isArray(value) ? value : [];
+      td = el('td', { className: classes }, badges.length
+        ? badges.map((b) => el('span', { className: 'badge', textContent: b }))
+        : el('span', { className: 'visible-text', textContent: column.heading === 'Visibility' ? 'Visible' : '' }));
+    } else {
+      td = el('td', { className: classes, textContent: column.type === 'price' ? price(typeof value === 'number' ? value : null) : String(value ?? '') });
+    }
+    if (column.prefix) td.dataset.prefix = column.prefix;
+    return td;
+  }
+
+  function renderItems() {
+    const box = $('products');
+    const r = items;
+    const { group } = open;
+    const cols = r.columns;
+    const title = cols.find((c) => c.role === 'title') ?? cols[0];
+    if (!sort.column || !cols.some((c) => c.key === sort.column)) sort = { column: title.key, direction: 1 };
+    // Column headings sort on a wide screen; a phone has no headings, so it gets a menu.
+    const sortBy = el('select', { id: 'sort-by',
+      onchange: (event) => {
+        const [column, direction] = event.target.value.split(':');
+        sort = { column, direction: Number(direction) };
+        renderItems();
+      } },
+    cols.flatMap((c) => {
+      const [up, down] = sortWords(c);
+      return [el('option', { value: `${c.key}:1`, textContent: `${c.heading}, ${up}` }), el('option', { value: `${c.key}:-1`, textContent: `${c.heading}, ${down}` })];
+    }));
+    sortBy.value = `${sort.column}:${sort.direction}`;
+    const head = el('div', { className: 'products-head' },
+      el('p', { className: 'count' }, r.rows.length ? `${number(r.rows.length)} ` : `No ${group.many} `, el('span', { className: 'of', textContent: `of ${number(r.total)} ${group.many}` })),
+      r.rows.length ? el('label', { className: 'sort-by', htmlFor: 'sort-by' }, 'Sort by', sortBy) : null,
+      el('div', { className: 'downloads' },
+        el('button', { className: 'btn', type: 'button', textContent: 'Download CSV', disabled: !r.rows.length, onclick: () => download('csv') }),
+        el('button', { className: 'btn', type: 'button', textContent: 'Download PDF', disabled: !r.rows.length, onclick: () => download('pdf') })));
+    if (!r.rows.length) return fill(box, head);
+
+    const by = cols.find((c) => c.key === sort.column) ?? title;
+    const sorted = [...r.rows].sort((a, b) => {
+      const x = sortValue(by, a.cells[by.key]);
+      const y = sortValue(by, b.cells[by.key]);
+      const order = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'en', { numeric: true });
+      return order * sort.direction || a.id - b.id;
+    });
+    const thead = el('thead', {}, el('tr', {}, cols.map((c) => {
+      const active = sort.column === c.key;
+      const th = el('th', { scope: 'col', className: `${c.type === 'price' ? 'num' : ''}${c.type === 'values' ? ' field-col' : ''}` },
+        el('button', { type: 'button', onclick: () => { sort = { column: c.key, direction: active ? -sort.direction : 1 }; renderItems(); } },
+          c.heading, el('span', { className: 'arrow', ariaHidden: 'true', textContent: active ? (sort.direction > 0 ? '▲' : '▼') : '' })));
+      if (active) th.setAttribute('aria-sort', sort.direction > 0 ? 'ascending' : 'descending');
+      return th;
+    })));
+    const body = el('tbody', {}, sorted.slice(0, SHOW_ROWS).map((row) => el('tr', {}, cols.map((c) => cell(c, row.cells[c.key])))));
+    fill(box, head,
+      el('div', { className: 'table-wrap' }, tableRoles(el('table', {}, thead, body))),
+      r.rows.length > SHOW_ROWS ? el('p', { className: 'hint', textContent: `Showing the first ${number(SHOW_ROWS)}. Download the CSV for all ${number(r.rows.length)}.` }) : null,
+      cols.some((c) => c.type === 'price') ? el('p', { className: 'hint', textContent: group.kind === 'variant' ? 'Prices are in the store’s default currency. A variant without a price of its own shows its product’s.' : 'Prices are in the store’s default currency.' }) : null);
+  }
+
+  async function download(format) {
+    showError('');
+    try {
+      const res = await api('/api/export', { ...request(), format });
+      const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || `${open.group.many}.${format}`;
+      saveBlob(await res.blob(), name);
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  // ---- How old the catalog is ---------------------------------------------------------------
+  function renderFreshness() {
+    if (!readAt) {
+      $('freshness').textContent = summaryLoading ? 'Reading the catalog…' : '';
+      $('refresh').hidden = true;
+      return;
+    }
+    const minutes = Math.round((Date.now() - readAt.getTime()) / 60000);
+    const time = readAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    $('freshness').textContent = `Catalog read at ${time}${minutes >= 1 ? `, ${minutes} min ago` : ''}`;
+    $('refresh').hidden = false;
+  }
+
+  async function refresh() {
+    showError('');
+    try {
+      await api('/api/refresh', {});
+      readAt = null;
+      summary = null;
+      items = null;
+      variantsRead = false;
+      route();
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  // ---- Start ------------------------------------------------------------------------------------
+  $('refresh').addEventListener('click', refresh);
+  window.addEventListener('hashchange', route);
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.target.closest('input, select, textarea, [contenteditable]')) return;
+    const filter = $('filter');
+    if (!filter || $('list').hidden) return;
+    event.preventDefault();
+    filter.focus();
+    filter.select();
+  });
+  setInterval(renderFreshness, 30000);
+
+  (async () => {
+    try {
+      state = await (await api('/api/state')).json();
+      fill($('store'), 'Store ', el('strong', { textContent: state.storeHash }), ` (${state.env})`);
+      readAt = state.readAt ? new Date(state.readAt) : null;
+    } catch (err) {
+      $('store').textContent = '';
+      return showError(err.message);
+    }
+    route();
+  })();
+})();
+</script>
+</body>
+</html>
