@@ -5,11 +5,7 @@ variants, categories and brands that have each one: the data the admin cannot
 search. Open it in your browser, choose a field, and download what has it as
 CSV or PDF.
 
-```
-npx field-explorer start
-```
-
-The tool is simply a viewer, it cannot add data. 
+The tool is simply a viewer/explorer, it cannot add data. 
 
 To manage metafields use:
 https://www.hypaapps.com/bigcommerce-apps/metafields-manager/
