@@ -9,6 +9,9 @@ CSV or PDF.
 npx field-explorer start
 ```
 
+The tool is simply a viewer, it cannot add data. To manage metafields use:
+https://www.hypaapps.com/bigcommerce-apps/metafields-manager/
+
 ## Install
 
 Needs Node 20 or newer. From your project root:
