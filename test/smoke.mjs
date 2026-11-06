@@ -250,7 +250,7 @@ try {
     assert.ok(!made.some((req) => /\/variants\?limit=250/.test(req)), 'but not read until a variant field is opened');
 
     const groups = Object.fromEntries(summary.data.groups.map((g) => [g.kind, g]));
-    assert.deepEqual(summary.data.groups.map((g) => g.kind), ['mf', 'cf', 'variant', 'category', 'brand']);
+    assert.deepEqual(summary.data.groups.map((g) => g.kind), ['cf', 'mf', 'variant', 'category', 'brand']);
     assert.equal(summary.data.metafieldsRead, 18);
     const totals = Object.fromEntries(summary.data.groups.map((g) => [g.kind, [g.total, g.withAny, g.one, g.many]]));
     assert.deepEqual(totals, {

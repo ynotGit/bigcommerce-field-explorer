@@ -63,8 +63,8 @@ every field in it, in five sections:
 
 | Section | What has the field |
 | --- | --- |
-| Product metafields | Products |
 | Product custom fields | Products |
+| Product metafields | Products |
 | Variant metafields | Variants |
 | Category metafields | Categories |
 | Brand metafields | Brands |

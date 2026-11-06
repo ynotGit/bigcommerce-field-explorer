@@ -41,7 +41,7 @@ selected when it started (or the one named with `--env`). It works with no
 internet connection beyond the store's API: nothing is loaded from elsewhere.
 
 **The field list** is what the page opens on. It lists every field in the
-catalog, in five sections: product metafields, product custom fields, variant
+catalog, in five sections: product custom fields, product metafields, variant
 metafields, category metafields and brand metafields. For each: the namespace
 and key (for custom fields, the name), how many products, variants, categories
 or brands have it, how many different values it has, and its most common values

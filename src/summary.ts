@@ -164,8 +164,8 @@ export function summariseCatalog(catalog: Catalog): CatalogSummary {
 
   return {
     groups: [
-      group('mf', catalog.products.length, productMetafields),
       group('cf', catalog.products.length, customFields),
+      group('mf', catalog.products.length, productMetafields),
       group('variant', catalog.variantCount, variantMetafields),
       group('category', catalog.categories.length, categoryMetafields),
       group('brand', catalog.brands.length, brandMetafields),
