@@ -87,7 +87,13 @@ const brands = [
   { id: 300, name: 'Acme', custom_url: { url: '/brands/acme/' } },
   { id: 301, name: 'Highland', custom_url: { url: '/brands/highland/' } },
 ];
-const brandMetafields = [{ id: ++mfId, resource_id: 300, resource_type: 'brand', namespace: 'pim', key: 'country', value: 'UK', permission_set: 'read' }];
+const bmf = (resource_id, namespace, key, value) => ({ id: ++mfId, resource_id, resource_type: 'brand', namespace, key, value, permission_set: 'read' });
+const brandMetafields = [
+  bmf(300, 'pim', 'country', 'UK'),
+  // JSON, as apps often store it: each key gets a column of its own.
+  bmf(300, 'pim', 'specs', '{"founded":1990,"origin":{"country":"UK"},"tags":["eco"]}'),
+  bmf(301, 'pim', 'specs', '{"founded":205,"note":"Family run, since 205"}'),
+];
 
 const requests = []; // every API request, as "store/path?query"
 let throttled = false;
@@ -251,14 +257,14 @@ try {
 
     const groups = Object.fromEntries(summary.data.groups.map((g) => [g.kind, g]));
     assert.deepEqual(summary.data.groups.map((g) => g.kind), ['cf', 'mf', 'variant', 'category', 'brand']);
-    assert.equal(summary.data.metafieldsRead, 18);
+    assert.equal(summary.data.metafieldsRead, 20);
     const totals = Object.fromEntries(summary.data.groups.map((g) => [g.kind, [g.total, g.withAny, g.one, g.many]]));
     assert.deepEqual(totals, {
       mf: [7, 5, 'product', 'products'],
       cf: [7, 6, 'product', 'products'],
       variant: [6, 4, 'variant', 'variants'],
       category: [4, 4, 'category', 'categories'],
-      brand: [2, 1, 'brand', 'brands'],
+      brand: [2, 2, 'brand', 'brands'],
     }, 'a metafield on a category that no longer exists is not counted');
     const mfs = groups.mf.fields;
     const cfs = groups.cf.fields;
@@ -271,7 +277,10 @@ try {
     assert.deepEqual(groups.variant.fields.map((f) => `${f.namespace}/${f.name}:${f.count}`), ['erp/barcode:3', 'erp/colour_hex:1', 'feeds/gtin:1']);
     assert.deepEqual(groups.variant.fields[0].spellings, ['barcode', 'Barcode']);
     assert.deepEqual(groups.category.fields.map((f) => `${f.namespace}/${f.name}:${f.count}`), ['theme/banner:3', 'theme/layout:1']);
-    assert.deepEqual(groups.brand.fields.map((f) => `${f.namespace}/${f.name}:${f.count}`), ['pim/country:1']);
+    assert.deepEqual(groups.brand.fields.map((f) => `${f.namespace}/${f.name}:${f.count}`), ['pim/specs:2', 'pim/country:1']);
+    assert.deepEqual(groups.brand.fields[0].keys, [{ key: 'founded', count: 2 }, { key: 'origin', count: 1 }, { key: 'tags', count: 1 }, { key: 'note', count: 1 }], 'a JSON field lists its keys, most used first');
+    assert.ok(!('keys' in groups.brand.fields[1]), 'a field that is not JSON has no keys');
+    assert.ok(!('keys' in mfs[1]), 'a value that only looks like text is not JSON');
 
     const ids = (res) => res.data.rows.map((row) => row.id);
     const keys = (res) => res.data.columns.map((c) => c.key);
@@ -342,6 +351,12 @@ try {
     assert.deepEqual(found.data.rows, [{ id: 300, cells: { id: 300, name: 'Acme', path: '/brands/acme/', field: ['UK'] } }]);
     found = await post('/api/items', { kind: 'brand', namespace: 'pim', name: 'country', missing: true });
     assert.deepEqual(ids(found), [301]);
+    found = await post('/api/items', { kind: 'brand', namespace: 'pim', name: 'specs' });
+    assert.deepEqual(keys(found), ['id', 'name', 'path', 'field']);
+    assert.deepEqual(found.data.columns.find((c) => c.key === 'field'), { key: 'field', heading: 'specs (pim)', type: 'json' }, 'JSON is shown a key at a time');
+    assert.deepEqual(found.data.rows[0].cells.field, ['{"founded":1990,"origin":{"country":"UK"},"tags":["eco"]}']);
+    found = await post('/api/items', { kind: 'brand', namespace: 'pim', name: 'country' });
+    assert.equal(found.data.columns.find((c) => c.key === 'field').type, 'values', 'a field that is not JSON is shown as it is');
 
     // Mistakes in a request are explained.
     let wrong = await post('/api/items', { kind: 'sku', name: 'x' });
@@ -377,6 +392,13 @@ try {
       '23,2,Linen Shirt,LS-SAMPLE,Size: Sample,45.00,,true,true,\n');
     r = await send('POST', '/api/export', { body: { kind: 'category', namespace: 'theme', name: 'banner', format: 'csv' } });
     assert.match(await r.text(), /^id,name,url,tree,visible,banner \(theme\)\n100,Bags,\/bags\/,UK store,true,bags\.jpg\n/);
+    r = await send('POST', '/api/export', { body: { kind: 'brand', namespace: 'pim', name: 'specs', format: 'csv' } });
+    assert.equal(await r.text(),
+      'id,name,url,specs (pim),specs.founded,specs.origin,specs.tags,specs.note\n' +
+      '300,Acme,/brands/acme/,"{""founded"":1990,""origin"":{""country"":""UK""},""tags"":[""eco""]}",1990,"{""country"":""UK""}","[""eco""]",\n' +
+      '301,Highland,/brands/highland/,"{""founded"":205,""note"":""Family run, since 205""}",205,,,"Family run, since 205"\n');
+    r = await send('POST', '/api/export', { body: { kind: 'brand', namespace: 'pim', name: 'specs', format: 'pdf' } });
+    assert.equal((await PDFDocument.load(new Uint8Array(await r.arrayBuffer()))).getTitle(), 'Brands with specs (pim)');
     r = await send('POST', '/api/export', { body: { kind: 'mf', namespace: 'erp', name: 'season', format: 'pdf' } });
     assert.equal(r.headers.get('content-type'), 'application/pdf');
     assert.match(r.headers.get('content-disposition'), /filename="erp-season-\d{4}-\d{2}-\d{2}\.pdf"/);

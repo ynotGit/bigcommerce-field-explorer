@@ -4,7 +4,7 @@
 // compared the way the summary groups them, so every count in the summary is
 // exactly what is listed.
 import type { Catalog } from './cache.js';
-import { KINDS, LONGEST_VALUE, fold, type Kind } from './summary.js';
+import { KINDS, LONGEST_VALUE, fold, jsonObject, type Kind } from './summary.js';
 import type { Metafield, Variant } from './types.js';
 
 /** A custom field (by name) or a metafield (by namespace and key) on one kind of thing. */
@@ -17,8 +17,11 @@ export interface FieldRef {
 /** What a field's page shows. */
 export type Show = { set: true } | { value: string } | { missing: true };
 
-/** How a column's values look and sort. A status holds badges, such as "Hidden"; none means all is well. */
-export type ColumnType = 'id' | 'text' | 'mono' | 'price' | 'values' | 'status';
+/**
+ * How a column's values look and sort. A status holds badges, such as "Hidden"; none means all is well.
+ * JSON is a field whose every value is a JSON object, shown a key at a time.
+ */
+export type ColumnType = 'id' | 'text' | 'mono' | 'price' | 'values' | 'json' | 'status';
 
 export interface Column {
   key: string;
@@ -63,6 +66,24 @@ function sameValue(value: string, chosen: string): boolean {
   const b = fold(chosen);
   if (chosen.length === LONGEST_VALUE && chosen.endsWith('…')) return a.startsWith(b.slice(0, -1));
   return a === b;
+}
+
+/** One key's value as text: a string as it is, anything nested as compact JSON, nothing for null or a missing key. */
+export const partText = (value: unknown): string =>
+  value === undefined || value === null ? '' : typeof value === 'string' ? value : typeof value === 'object' ? JSON.stringify(value) : String(value);
+
+/** When every value a field has is a JSON object, their keys, in the order they first appear. Otherwise none. */
+function jsonKeys(items: Item[]): string[] {
+  const keys = new Set<string>();
+  for (const item of items) {
+    for (const value of item.values) {
+      if (value.trim() === '') continue;
+      const object = jsonObject(value);
+      if (!object) return [];
+      for (const key of Object.keys(object)) keys.add(key);
+    }
+  }
+  return [...keys];
 }
 
 const amount = (n: unknown): number | null => (typeof n === 'number' && Number.isFinite(n) ? n : null);
@@ -221,19 +242,27 @@ export function tableFor(catalog: Catalog, variants: Variant[] | null, field: Fi
   const onSale = items.some((item) => item.cells.sale !== null && item.cells.sale !== undefined);
   const withField = !('missing' in show);
   const columns = kind.columns.filter((c) => c.key !== 'sale' || onSale);
-  const fieldColumn: Column = { key: 'field', heading: fieldLabel(field), type: 'values' };
+  // A field whose values are JSON objects is shown a key at a time, and gets a CSV column for each key.
+  // The keys come from everything with the field, so the CSV's columns stay put whichever value is shown.
+  const keys = withField ? jsonKeys(kind.items) : [];
+  const fieldColumn: Column = { key: 'field', heading: fieldLabel(field), type: keys.length ? 'json' : 'values' };
   if (withField) {
     // The field's values go before the status, or last when there is none.
     const at = columns.findIndex((c) => c.type === 'status');
     columns.splice(at === -1 ? columns.length : at, 0, fieldColumn);
   }
+  /** Each key's value, in each of an item's values. */
+  const partsOf = (item: Item): string[][] => {
+    const objects = item.values.map((v) => jsonObject(v) ?? {});
+    return keys.map((key) => objects.map((o) => partText(o[key])));
+  };
 
   return {
     columns,
     rows: items.map((item) => ({ id: item.id, cells: withField ? { ...item.cells, field: item.values } : item.cells })),
     total: kind.items.length,
-    csvHeaders: [...kind.csvHeaders, ...(withField ? [fieldColumn.heading] : [])],
-    csvRows: items.map((item) => [...item.csv, ...(withField ? [item.values.join(' | ')] : [])]),
+    csvHeaders: [...kind.csvHeaders, ...(withField ? [fieldColumn.heading, ...keys.map((key) => `${field.name}.${key}`)] : [])],
+    csvRows: items.map((item) => [...item.csv, ...(withField ? [item.values.join(' | '), ...partsOf(item).map((values) => values.join(' | '))] : [])]),
   };
 }
 
@@ -255,6 +284,12 @@ export const csv = (table: Table): string =>
 /** A cell as lines of text, for the PDF. */
 export function cellLines(column: Column, value: Cell | undefined): string[] {
   if (column.type === 'values') return Array.isArray(value) ? value.map((v) => (v === '' ? '(empty)' : v)) : [];
+  // JSON is written out a key to a line.
+  if (column.type === 'json') {
+    return Array.isArray(value)
+      ? value.flatMap((v) => Object.entries(jsonObject(v) ?? {}).map(([k, part]) => `${k}: ${partText(part)}`))
+      : [];
+  }
   if (column.type === 'status') return Array.isArray(value) && value.length ? value : [column.heading === 'Visibility' ? 'Visible' : ''];
   if (column.type === 'price') return [formatPrice(typeof value === 'number' ? value : null)];
   return [value === null || value === undefined ? '' : String(value)];

@@ -108,6 +108,12 @@ What is listed depends on the field:
 | Categories | ID, name, URL, category tree (on stores with more than one), the field's value, visibility |
 | Brands | ID, name, URL, the field's value |
 
+**JSON values.** When every value a field has is a JSON object (as apps often
+store settings), each key is shown as a pill (`stock -1`, `threshold 20`), with
+the full JSON under each row. The CSV gives each key a column of its own. Whole
+JSON values are seldom the same twice, so the field list shows a JSON field's
+keys in place of its most common values, and its page has no value buttons.
+
 Sort by any column, and download the list as **CSV** (every row, ready for
 Excel) or **PDF** (a printable table headed with the store, the date and what
 it shows). **Download CSV** on the field list saves the list of fields itself.

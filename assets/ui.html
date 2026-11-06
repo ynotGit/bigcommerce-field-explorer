@@ -87,6 +87,18 @@
   td.role-title { min-width: 180px; }
   td.c-options { color: var(--muted); }
   td .v + .v { margin-top: 2px; }
+  /* JSON: a pill for each key, and the JSON itself on a line under its row. */
+  td.t-json { min-width: 22em; }
+  .pills { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pills + .pills { margin-top: 6px; }
+  .pill { display: inline-flex; gap: 5px; max-width: 36ch; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 11px; background: var(--ground); font-size: 13px; line-height: 20px; }
+  .pill .k { color: var(--kind); font-weight: 600; white-space: nowrap; }
+  .pill .pv { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pill .pv.none { font-style: italic; color: var(--muted); }
+  /* A JSON field's value, on a line of its own under its row. */
+  .products tbody tr:has(+ tr.raw) td { border-bottom: 0; }
+  .products tbody tr:hover + tr.raw td, .products tbody tr:has(+ tr.raw:hover) td { background: var(--ground); }
+  tr.raw td { padding-top: 0; color: var(--muted); font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
   .badge { display: inline-block; margin: 0 4px 2px 0; padding: 0 7px; border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-size: 13px; white-space: nowrap; }
   .visible-text { color: var(--muted); }
 
@@ -126,6 +138,7 @@
   .example .text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .example .n { color: var(--muted); font-variant-numeric: tabular-nums; }
   .example.blank { font-style: italic; color: var(--muted); }
+  .example.key .text { color: var(--kind); font-weight: 600; }
   .empty-value { font-style: italic; color: var(--muted); }
   .chip[aria-pressed="true"] .empty-value { color: inherit; }
 
@@ -205,12 +218,18 @@
     .products tbody tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
     .products td.role-title { flex: 1 1 60%; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
     .products td.role-price { margin-left: auto; font-weight: 600; }
-    .products td:not(.role-title):not(.role-price):not(.t-values):not(.t-status) { order: 2; }
+    .products td:not(.role-title):not(.role-price):not(.t-values):not(.t-json):not(.t-status) { order: 2; }
     .products td.t-mono { white-space: normal; overflow-wrap: anywhere; }
     .products td[data-prefix]::before { content: attr(data-prefix); }
     .products td.c-sale { margin-left: auto; color: var(--muted); }
-    .products td.t-values { order: 3; flex-basis: 100%; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
-    .products td.t-values::before { content: attr(data-label); display: block; margin-bottom: 2px; color: var(--kind); font-size: 12px; font-weight: 600; }
+    .products td.t-values, .products td.t-json { order: 3; flex-basis: 100%; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+    .products td.t-values::before, .products td.t-json::before { content: attr(data-label); display: block; margin-bottom: 2px; color: var(--kind); font-size: 12px; font-weight: 600; }
+    .products td.t-json { min-width: 0; }
+    .pill { max-width: 100%; }
+    .products tr.raw td { flex-basis: 100%; }
+    .products tbody tr:has(+ tr.raw) { margin-bottom: 0; border-bottom: 0; border-radius: 8px 8px 0 0; }
+    .products tbody tr.raw { padding-top: 0; border-top: 0; border-radius: 0 0 8px 8px; }
+    .products tbody tr.raw:hover td, .products tbody tr:hover + tr.raw td, .products tbody tr:has(+ tr.raw:hover) td { background: none; }
     .products td.t-status { order: 4; flex-basis: 100%; }
     .products td.t-status:not(:has(.badge)) { display: none; }
   }
@@ -233,6 +252,7 @@
 (() => {
   const SHOW_ROWS = 1000;
   const LIST_VALUES = 5;
+  const LIST_KEYS = 8;
 
   const $ = (id) => document.getElementById(id);
   const el = (tag, props = {}, ...children) => {
@@ -355,25 +375,35 @@
     const headers = [...(metafield ? ['Namespace', 'Key'] : ['Name']), capital(group.many), 'Values', 'Most common values'];
     const thead = el('thead', {}, el('tr', {}, headers.map((h, i) => el('th', { scope: 'col', className: i >= headers.length - 3 && i < headers.length - 1 ? 'num' : '', textContent: h }))));
     const body = el('tbody', {}, fields.map((f) => {
+      // A JSON field's values are each a whole object, and seldom the same twice; its keys say more.
+      if (f.keys) return fieldRow(group, f, f.keys.slice(0, LIST_KEYS).map((k) => el('span', {
+        className: 'example key',
+        title: `${number(k.count)} ${k.count === 1 ? group.one : group.many} with ${k.key} in ${f.name}`,
+      }, el('span', { className: 'text', textContent: k.key }), el('span', { className: 'n', textContent: number(k.count) }))), f.keys.length - LIST_KEYS, 'keys');
       const examples = f.top.slice(0, LIST_VALUES).map((t) => el('a', {
         className: 'example',
         href: fieldHash(kind, f.namespace, f.name, { value: t.value }),
         title: t.value === '' ? `${capital(group.many)} where ${f.name} is set but empty` : `${capital(group.many)} where ${f.name} is ${t.value}`,
       }, valueLabel(t.value), el('span', { className: 'n', textContent: number(t.count) })));
-      const more = f.values - Math.min(LIST_VALUES, f.top.length);
-      const ns = metafield ? el('td', { className: 'ns', textContent: f.namespace }) : null;
-      const link = el('a', { className: 'field-link', href: fieldHash(kind, f.namespace, f.name), title: `${capital(group.many)} with ${f.name}`, textContent: f.name });
-      const row = el('tr', {},
-        ns,
-        el('td', { className: 'key' }, link, f.spellings ? el('span', { className: 'also-small', textContent: `also ${f.spellings.slice(1).join(', ')}` }) : null),
-        counted('count-n', f.count, group.one, group.many),
-        counted('values-n', f.values, 'value', 'values'),
-        el('td', { className: 'examples-cell' }, el('div', { className: 'examples' }, examples, more > 0 ? el('span', { className: 'example blank', textContent: `+${number(more)} more` }) : null)));
-      // What the filter matches against, and where it marks what matched.
-      filterable.set(row, { field: f, ns, link, text: [f.namespace ?? '', f.name, ...(f.spellings ?? [])].join(' ').toLowerCase() });
-      return row;
+      return fieldRow(group, f, examples, f.values - Math.min(LIST_VALUES, f.top.length), 'more');
     }));
     return el('div', { className: 'table-wrap' }, tableRoles(el('table', {}, thead, body)));
+  }
+
+  /** A field's row in the list: its name, counts, and its most common values or, for JSON, its keys. */
+  function fieldRow(group, f, examples, more, moreWord) {
+    const { kind } = group;
+    const ns = kind !== 'cf' ? el('td', { className: 'ns', textContent: f.namespace }) : null;
+    const link = el('a', { className: 'field-link', href: fieldHash(kind, f.namespace, f.name), title: `${capital(group.many)} with ${f.name}`, textContent: f.name });
+    const row = el('tr', {},
+      ns,
+      el('td', { className: 'key' }, link, f.spellings ? el('span', { className: 'also-small', textContent: `also ${f.spellings.slice(1).join(', ')}` }) : null),
+      counted('count-n', f.count, group.one, group.many),
+      counted('values-n', f.values, 'value', 'values'),
+      el('td', { className: 'examples-cell' }, el('div', { className: 'examples' }, examples, more > 0 ? el('span', { className: 'example blank', textContent: `+${number(more)} ${moreWord}` }) : null)));
+    // What the filter matches against, and where it marks what matched.
+    filterable.set(row, { field: f, ns, link, text: [f.namespace ?? '', f.name, ...(f.spellings ?? [])].join(' ').toLowerCase() });
+    return row;
   }
 
   const groupOf = (kind) => summary.groups.find((g) => g.kind === kind);
@@ -488,10 +518,10 @@
 
   function downloadList() {
     const cell = (v) => (/[",\r\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
-    const rows = [['type', 'on', 'namespace', 'name', 'count', 'values', 'most_common_values']];
+    const rows = [['type', 'on', 'namespace', 'name', 'count', 'values', 'most_common_values', 'json_keys']];
     for (const g of summary.groups) {
       for (const f of g.fields) {
-        rows.push([g.kind === 'cf' ? 'custom field' : 'metafield', g.many, f.namespace || '', f.name, f.count, f.values, f.top.map((t) => `${t.value} (${t.count})`).join(' | ')]);
+        rows.push([g.kind === 'cf' ? 'custom field' : 'metafield', g.many, f.namespace || '', f.name, f.count, f.values, f.top.map((t) => `${t.value} (${t.count})`).join(' | '), (f.keys ?? []).map((k) => `${k.key} (${k.count})`).join(' | ')]);
       }
     }
     saveBlob(new Blob(['\uFEFF' + rows.map((r) => r.map(cell).join(',')).join('\n') + '\n'], { type: 'text/csv' }), `fields-${new Date().toISOString().slice(0, 10)}.csv`);
@@ -541,7 +571,8 @@
     const chosen = (value) => show.value !== undefined && show.value.toLowerCase() === value.toLowerCase();
     const chips = [
       chip(`With ${f.name}`, f.count, Boolean(show.set), undefined, `Every ${group.one} that has ${f.name}`),
-      ...f.top.map((t) => chip(valueLabel(t.value), t.count, chosen(t.value), { value: t.value },
+      // A JSON field's whole values are seldom the same twice, so they get no buttons.
+      ...(f.keys ? [] : f.top).map((t) => chip(valueLabel(t.value), t.count, chosen(t.value), { value: t.value },
         t.value === '' ? `${capital(group.many)} where ${f.name} is set but empty` : `${capital(group.many)} where ${f.name} is ${t.value}`)),
       chip(`Without ${f.name}`, Math.max(0, group.total - f.count), Boolean(show.missing), { missing: true }, `${capital(group.many)} that do not have ${f.name}`),
     ];
@@ -551,7 +582,7 @@
       el('div', { className: 'field-title' }, el('h2', { textContent: f.name }), el('span', { className: 'what', textContent: what })),
       f.spellings ? el('p', { className: 'also', textContent: `Also spelt ${f.spellings.slice(1).join(', ')} in places. Spellings that differ only in case are counted together.` }) : null,
       el('div', { className: 'chips', role: 'group', ariaLabel: 'Show' }, chips),
-      f.values > f.top.length ? el('p', { className: 'more', textContent: `${number(f.values)} different values; these are the ${f.top.length} most common.` }) : null,
+      !f.keys && f.values > f.top.length ? el('p', { className: 'more', textContent: `${number(f.values)} different values; these are the ${f.top.length} most common.` }) : null,
       // What is listed stays on screen while another chip's items load, so nothing jumps.
       $('products') || el('section', { className: 'products', id: 'products', ariaLabel: capital(group.many) }));
   }
@@ -603,12 +634,28 @@
     return ['A to Z', 'Z to A'];
   }
 
+  /** A JSON object as a pill for each key: "stock: -1". Anything nested is shown as compact JSON. */
+  function pills(json) {
+    let object = {};
+    try { object = JSON.parse(json); } catch { /* the JSON under the row still shows it */ }
+    return el('div', { className: 'pills' }, Object.entries(object ?? {}).map(([k, v]) => {
+      const none = v === null || v === '';
+      const text = v === null ? 'null' : v === '' ? 'empty' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+      return el('span', { className: 'pill', title: `${k}: ${text}` },
+        el('span', { className: 'k', textContent: k }),
+        el('span', { className: none ? 'pv none' : 'pv', textContent: text }));
+    }));
+  }
+
   function cell(column, value) {
     const classes = [`t-${column.type}`, `c-${column.key}`, column.role ? `role-${column.role}` : '', column.type === 'price' ? 'num' : ''].filter(Boolean).join(' ');
     let td;
     if (column.type === 'values') {
       td = el('td', { className: classes }, (value || []).map((v) => el('div', { className: v === '' ? 'v empty-value' : 'v', textContent: v === '' ? 'empty' : v })));
       td.dataset.label = column.heading; // the heading a phone's card shows above the values
+    } else if (column.type === 'json') {
+      td = el('td', { className: classes }, (value || []).map(pills));
+      td.dataset.label = column.heading;
     } else if (column.type === 'status') {
       const badges = Array.isArray(value) ? value : [];
       td = el('td', { className: classes }, badges.length
@@ -626,6 +673,7 @@
     const r = items;
     const { group } = open;
     const cols = r.columns;
+    const json = cols.find((c) => c.type === 'json');
     const title = cols.find((c) => c.role === 'title') ?? cols[0];
     if (!sort.column || !cols.some((c) => c.key === sort.column)) sort = { column: title.key, direction: 1 };
     // Column headings sort on a wide screen; a phone has no headings, so it gets a menu.
@@ -657,13 +705,19 @@
     });
     const thead = el('thead', {}, el('tr', {}, cols.map((c) => {
       const active = sort.column === c.key;
-      const th = el('th', { scope: 'col', className: `${c.type === 'price' ? 'num' : ''}${c.type === 'values' ? ' field-col' : ''}` },
+      const th = el('th', { scope: 'col', className: `${c.type === 'price' ? 'num' : ''}${c.type === 'values' || c.type === 'json' ? ' field-col' : ''}` },
         el('button', { type: 'button', onclick: () => { sort = { column: c.key, direction: active ? -sort.direction : 1 }; renderItems(); } },
           c.heading, el('span', { className: 'arrow', ariaHidden: 'true', textContent: active ? (sort.direction > 0 ? '▲' : '▼') : '' })));
       if (active) th.setAttribute('aria-sort', sort.direction > 0 ? 'ascending' : 'descending');
       return th;
     })));
-    const body = el('tbody', {}, sorted.slice(0, SHOW_ROWS).map((row) => el('tr', {}, cols.map((c) => cell(c, row.cells[c.key])))));
+    // A JSON field's JSON, as it is stored, on a line under its row.
+    const rawRow = (row) => el('tr', { className: 'raw' },
+      el('td', { colSpan: cols.length }, (row.cells[json.key] || []).map((v) => el('div', { className: 'v', textContent: v }))));
+    const body = el('tbody', {}, sorted.slice(0, SHOW_ROWS).flatMap((row) => [
+      el('tr', {}, cols.map((c) => cell(c, row.cells[c.key]))),
+      json ? rawRow(row) : null,
+    ].filter(Boolean)));
     fill(box, head,
       el('div', { className: 'table-wrap' }, tableRoles(el('table', {}, thead, body))),
       r.rows.length > SHOW_ROWS ? el('p', { className: 'hint', textContent: `Showing the first ${number(SHOW_ROWS)}. Download the CSV for all ${number(r.rows.length)}.` }) : null,

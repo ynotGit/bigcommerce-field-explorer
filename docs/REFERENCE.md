@@ -137,7 +137,7 @@ when it was read. Stopping the page forgets it.
 
 | Download | What it holds |
 | --- | --- |
-| **Download CSV** on the field list | Every field: `type` (metafield or custom field), `on` (products, variants, categories or brands), `namespace`, `name`, `count`, `values`, `most_common_values` |
+| **Download CSV** on the field list | Every field: `type` (metafield or custom field), `on` (products, variants, categories or brands), `namespace`, `name`, `count`, `values`, `most_common_values`, `json_keys` (a JSON field's keys, each with how many have it) |
 | **Download CSV** on a field's page | Everything it shows, with the columns below, then the field's values (left out for things without it). Several values in one cell are joined with ` \| `. |
 | **Download PDF** on a field's page | An A4 landscape table with the same columns as the page, headed with what it shows, the store, when the catalog was read and how many there are. Long tables carry on over as many pages as they need, with the column headings repeated. |
 
@@ -154,6 +154,17 @@ signs correctly. Prices are written with at least two decimal places and
 without thousands separators, so spreadsheets read them as numbers. Downloads
 are named after what they show and the date, such as
 `erp-season-aw26-2026-10-31.csv` or `variants-erp-barcode-2026-10-31.pdf`.
+
+A field whose every value is a JSON object is shown a key at a time: the page
+gives each top-level key a pill in the field's cell, with the full JSON on a
+line under the row, and the PDF lists the keys one to a line. Anything nested is
+shown as compact JSON. In the CSV, the field's column keeps the JSON and is
+followed by one column per key, named `<field>.<key>`, such as
+`backorder_configs.stock`, in the order the keys first appear across everything
+with the field, so the columns stay the same whichever value is shown. Since
+whole JSON values are seldom the same twice, the field list shows a JSON field's
+keys, each with how many have it, in place of its most common values, and the
+field's page has only the *With* and *Without* buttons.
 
 The PDF uses the standard PDF fonts, which cover Western European languages;
 other characters (Chinese or Greek, say) are shown as `?` there. The page and
