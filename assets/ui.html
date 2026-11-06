@@ -99,6 +99,7 @@
   .products tbody tr:has(+ tr.raw) td { border-bottom: 0; }
   .products tbody tr:hover + tr.raw td, .products tbody tr:has(+ tr.raw:hover) td { background: var(--ground); }
   tr.raw td { padding-top: 0; color: var(--muted); font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+  tr.raw .raw-label { display: block; margin-bottom: 2px; font-family: var(--sans); font-weight: 600; }
   .badge { display: inline-block; margin: 0 4px 2px 0; padding: 0 7px; border-radius: 10px; background: var(--danger-tint); color: var(--danger); font-size: 13px; white-space: nowrap; }
   .visible-text { color: var(--muted); }
 
@@ -713,7 +714,8 @@
     })));
     // A JSON field's JSON, as it is stored, on a line under its row.
     const rawRow = (row) => el('tr', { className: 'raw' },
-      el('td', { colSpan: cols.length }, (row.cells[json.key] || []).map((v) => el('div', { className: 'v', textContent: v }))));
+      el('td', { colSpan: cols.length }, el('span', { className: 'raw-label', textContent: 'Full JSON' }),
+        (row.cells[json.key] || []).map((v) => el('div', { className: 'v', textContent: v }))));
     const body = el('tbody', {}, sorted.slice(0, SHOW_ROWS).flatMap((row) => [
       el('tr', {}, cols.map((c) => cell(c, row.cells[c.key]))),
       json ? rawRow(row) : null,
