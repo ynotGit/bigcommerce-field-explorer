@@ -82,6 +82,7 @@
   th .arrow { color: var(--muted); font-size: 12px; min-width: 10px; }
   .products tbody tr:hover td { background: var(--ground); }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.t-price, th.price { text-align: center; }
   td.t-id { color: var(--muted); font-variant-numeric: tabular-nums; }
   td.t-mono { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
   td.role-title { min-width: 180px; }
@@ -708,7 +709,7 @@
     });
     const thead = el('thead', {}, el('tr', {}, cols.map((c) => {
       const active = sort.column === c.key;
-      const th = el('th', { scope: 'col', className: `${c.type === 'price' ? 'num' : ''}${c.type === 'values' || c.type === 'json' ? ' field-col' : ''}` },
+      const th = el('th', { scope: 'col', className: `${c.type === 'price' ? 'num price' : ''}${c.type === 'values' || c.type === 'json' ? ' field-col' : ''}` },
         el('button', { type: 'button', onclick: () => { sort = { column: c.key, direction: active ? -sort.direction : 1 }; renderItems(); } },
           c.heading, el('span', { className: 'arrow', ariaHidden: 'true', textContent: active ? (sort.direction > 0 ? '▲' : '▼') : '' })));
       if (active) th.setAttribute('aria-sort', sort.direction > 0 ? 'ascending' : 'descending');
