@@ -139,7 +139,9 @@
   .example .text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .example .n { color: var(--muted); font-variant-numeric: tabular-nums; }
   .example.blank { font-style: italic; color: var(--muted); }
-  .example.key .text { color: var(--kind); font-weight: 600; }
+  .example .text { color: var(--kind); }
+  .example .text.empty-value { color: var(--muted); }
+  .example.key .text { font-weight: 600; }
   .empty-value { font-style: italic; color: var(--muted); }
   .chip[aria-pressed="true"] .empty-value { color: inherit; }
 
