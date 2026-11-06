@@ -292,13 +292,13 @@ try {
     assert.equal(since(mark).length, 0, 'the catalog already read is used');
     assert.deepEqual(ids(found), [2, 1, 5, 3], 'sorted by name');
     assert.equal(found.data.rows.length, mfs[0].count);
-    assert.deepEqual(keys(found), ['id', 'name', 'sku', 'price', 'sale', 'field', 'status']);
+    assert.deepEqual(keys(found), ['id', 'name', 'sku', 'price', 'sale', 'field', 'visibility']);
     assert.deepEqual(found.data.columns.find((c) => c.key === 'field'), { key: 'field', heading: 'season (erp)', type: 'values' });
     assert.equal(found.data.total, 7);
-    assert.deepEqual(found.data.rows[1], { id: 1, cells: { id: 1, name: 'Organic Tote', sku: 'OTL-TOTE', price: 20, sale: 18.5, status: [], field: ['AW26'] } });
+    assert.deepEqual(found.data.rows[1], { id: 1, cells: { id: 1, name: 'Organic Tote', sku: 'OTL-TOTE', price: 20, sale: 18.5, visibility: [], field: ['AW26'] } });
     assert.deepEqual(found.data.rows[0].cells.field, ['SS25'], 'only the namespace asked for');
     assert.equal(found.data.rows[0].cells.sale, null, 'not on sale');
-    assert.deepEqual(found.data.rows[2].cells.status, ['Hidden']);
+    assert.deepEqual(found.data.rows[2].cells.visibility, ['Hidden']);
     found = await post('/api/items', { kind: 'mf', namespace: 'erp', name: 'season', value: 'aw26' });
     assert.deepEqual(ids(found), [1, 5, 3]);
     assert.equal(found.data.rows.length, mfs[0].top[0].count);
@@ -311,7 +311,7 @@ try {
     assert.equal(found.data.rows.length, cfs[0].top[0].count);
     found = await post('/api/items', { kind: 'cf', name: 'Material', value: 'wool' });
     assert.deepEqual(ids(found), [3], 'spaces around a value do not matter');
-    assert.deepEqual(keys(found), ['id', 'name', 'sku', 'price', 'field', 'status'], 'no sale price column when nothing listed is on sale');
+    assert.deepEqual(keys(found), ['id', 'name', 'sku', 'price', 'field', 'visibility'], 'no sale price column when nothing listed is on sale');
     found = await post('/api/items', { kind: 'mf', namespace: 'app', name: 'notes', value: mfs[1].top[0].value });
     assert.deepEqual(ids(found), [6], 'a value cut short still finds its products');
     found = await post('/api/items', { kind: 'cf', name: 'Nothing like this' });
@@ -341,11 +341,11 @@ try {
     // Categories and brands.
     found = await post('/api/items', { kind: 'category', namespace: 'theme', name: 'banner' });
     assert.deepEqual(ids(found), [100, 200, 101]);
-    assert.deepEqual(keys(found), ['id', 'name', 'path', 'tree', 'field', 'status'], 'a tree column, since there are two trees');
-    assert.deepEqual(found.data.rows[1].cells, { id: 200, name: 'Sale', path: '/sale/', tree: 'EU store', status: [], field: ['sale.jpg'] });
+    assert.deepEqual(keys(found), ['id', 'name', 'path', 'tree', 'field', 'visibility'], 'a tree column, since there are two trees');
+    assert.deepEqual(found.data.rows[1].cells, { id: 200, name: 'Sale', path: '/sale/', tree: 'EU store', visibility: [], field: ['sale.jpg'] });
     found = await post('/api/items', { kind: 'category', namespace: 'theme', name: 'banner', missing: true });
     assert.deepEqual(ids(found), [102]);
-    assert.deepEqual(found.data.rows[0].cells.status, ['Hidden']);
+    assert.deepEqual(found.data.rows[0].cells.visibility, ['Hidden']);
     found = await post('/api/items', { kind: 'brand', namespace: 'pim', name: 'country' });
     assert.deepEqual(keys(found), ['id', 'name', 'path', 'field']);
     assert.deepEqual(found.data.rows, [{ id: 300, cells: { id: 300, name: 'Acme', path: '/brands/acme/', field: ['UK'] } }]);

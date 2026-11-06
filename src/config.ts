@@ -45,7 +45,7 @@ export function parseEnvFile(file: string): Record<string, string> | null {
 }
 
 /** Everything the tool reads and writes lives in this folder inside your project. */
-export const WORKSPACE_DIR = 'field-explorer';
+const WORKSPACE_DIR = 'field-explorer';
 
 export const text = (value: unknown): string | undefined =>
   typeof value === 'string' && value !== '' ? value : undefined;
@@ -152,8 +152,13 @@ export function selectedEnvName(root: string, flags: Flags = {}): string | null 
   return listEnvNames(root).some((name) => name !== DEFAULT_ENV) ? null : DEFAULT_ENV;
 }
 
+/** The error for an environment that has not been saved. */
+export function noSuchEnv(name: string, known: string[]): Error {
+  return new Error(`No environment called "${name}".${known.length ? ` You have: ${known.join(', ')}.` : ''}\nCreate it with: ${TOOL} env add ${name}`);
+}
+
 /** The tool never guesses between stores: with named environments, one must be chosen first. */
-export function resolveEnvName(root: string, flags: Flags = {}): string {
+function resolveEnvName(root: string, flags: Flags = {}): string {
   const selected = selectedEnvName(root, flags);
   if (selected) return selected;
   const names = listEnvNames(root);
@@ -166,12 +171,7 @@ export function loadConfig(flags: Flags = {}): Config {
   const root = existingWorkspace();
   const envName = resolveEnvName(root, flags);
   let vars = parseEnvFile(envFilePath(root, envName));
-  if (!vars && envName !== DEFAULT_ENV) {
-    const known = listEnvNames(root);
-    throw new Error(
-      `No environment called "${envName}".${known.length ? ` You have: ${known.join(', ')}.` : ''}\nCreate it with: ${TOOL} env add ${envName}`,
-    );
-  }
+  if (!vars && envName !== DEFAULT_ENV) throw noSuchEnv(envName, listEnvNames(root));
   // With no file for the default environment, fall back to a project-level .env
   // and then to real environment variables (useful in CI). When a file exists,
   // the store and token come only from it, so a stray shell variable can never

@@ -10,7 +10,7 @@ const TIMEOUT_MS = Number(process.env.BC_API_TIMEOUT_MS) || 60_000;
 const MAX_IN_FLIGHT = 4;
 
 /** The largest page the catalog endpoints return. */
-export const PAGE_SIZE = 250;
+const PAGE_SIZE = 250;
 
 /** fetch says only "fetch failed"; the reason (no network, a mistyped host, a refused connection) is tucked away in its cause. */
 function unreachable(url: URL, err: unknown): Error {
@@ -91,34 +91,19 @@ export async function bc<T>(config: Config, path: string, query: Query = {}): Pr
   }
 }
 
-/** Called after each page with how many items have arrived and how many there are in all (0 when the store does not say). */
-export type Progress = (done: number, total: number) => void;
-
 /**
  * Every item of a paginated v3 collection. The first page says how many pages
  * there are; the rest are then fetched side by side and put back in order.
  */
-export async function fetchAll<T>(config: Config, path: string, query: Query = {}, progress?: Progress): Promise<T[]> {
+export async function fetchAll<T>(config: Config, path: string, query: Query = {}): Promise<T[]> {
   const page = (n: number) => bc<PageOf<T>>(config, path, { ...query, limit: PAGE_SIZE, page: n });
   const first = await page(1);
   const items = [...(first?.data ?? [])];
-  const pagination = first?.meta?.pagination;
-  const total = pagination?.total ?? 0;
-  progress?.(items.length, total);
+  const pages = first?.meta?.pagination?.total_pages;
 
-  if (pagination?.total_pages) {
-    const rest = Array.from({ length: Math.max(0, pagination.total_pages - 1) }, (_, i) => i + 2);
-    const pages: T[][] = [];
-    let done = items.length;
-    await Promise.all(
-      rest.map(async (n) => {
-        const data = (await page(n))?.data ?? [];
-        pages[n] = data;
-        done += data.length;
-        progress?.(done, total);
-      }),
-    );
-    for (const n of rest) items.push(...(pages[n] ?? []));
+  if (pages) {
+    const rest = Array.from({ length: Math.max(0, pages - 1) }, (_, i) => i + 2);
+    for (const data of await Promise.all(rest.map(async (n) => (await page(n))?.data ?? []))) items.push(...data);
     return items;
   }
 
@@ -127,7 +112,6 @@ export async function fetchAll<T>(config: Config, path: string, query: Query = {
     const data = (await page(n))?.data ?? [];
     items.push(...data);
     last = data.length;
-    progress?.(items.length, total);
   }
   return items;
 }

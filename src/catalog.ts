@@ -1,4 +1,4 @@
-import { ApiError, bc, fetchAll, type Progress } from './api.js';
+import { ApiError, bc, fetchAll } from './api.js';
 import type { Brand, Category, Config, Metafield, PageOf, Product, Tree, Variant } from './types.js';
 
 /**
@@ -6,12 +6,12 @@ import type { Brand, Category, Config, Metafield, PageOf, Product, Tree, Variant
  * left out, since it is often the largest thing on a product and nothing here
  * shows it.
  */
-export function fetchProducts(config: Config, progress?: Progress): Promise<Product[]> {
-  return fetchAll<Product>(config, '/v3/catalog/products', { include: 'custom_fields', exclude_fields: 'description' }, progress);
+export function fetchProducts(config: Config): Promise<Product[]> {
+  return fetchAll<Product>(config, '/v3/catalog/products', { include: 'custom_fields', exclude_fields: 'description' });
 }
 
 /** Where each kind of catalog metafield is listed, catalog-wide. */
-export const METAFIELD_PATHS = {
+const METAFIELD_PATHS = {
   product: '/v3/catalog/products/metafields',
   variant: '/v3/catalog/variants/metafields',
   category: '/v3/catalog/categories/metafields',
@@ -19,8 +19,8 @@ export const METAFIELD_PATHS = {
 } as const;
 
 /** Every metafield of one kind this token can read, grouped by the ID of what it is on. */
-export async function fetchMetafields(config: Config, kind: keyof typeof METAFIELD_PATHS, progress?: Progress): Promise<Map<number, Metafield[]>> {
-  const all = await fetchAll<Metafield>(config, METAFIELD_PATHS[kind], {}, progress);
+export async function fetchMetafields(config: Config, kind: keyof typeof METAFIELD_PATHS): Promise<Map<number, Metafield[]>> {
+  const all = await fetchAll<Metafield>(config, METAFIELD_PATHS[kind]);
   const byResource = new Map<number, Metafield[]>();
   for (const field of all) {
     const list = byResource.get(field.resource_id);
@@ -43,8 +43,8 @@ export const countProducts = (config: Config): Promise<number> => count(config, 
 export const countVariants = (config: Config): Promise<number> => count(config, '/v3/catalog/variants');
 
 /** Every variant in the catalog. Read only when a variant field is opened, since there can be many. */
-export function fetchVariants(config: Config, progress?: Progress): Promise<Variant[]> {
-  return fetchAll<Variant>(config, '/v3/catalog/variants', {}, progress);
+export function fetchVariants(config: Config): Promise<Variant[]> {
+  return fetchAll<Variant>(config, '/v3/catalog/variants');
 }
 
 /**

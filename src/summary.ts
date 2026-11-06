@@ -79,6 +79,24 @@ export function jsonObject(value: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * A field's JSON keys, and what has each. A field is JSON when every value it
+ * has, other than empty ones, is a JSON object; one that is not ends the count.
+ */
+export class JsonKeys {
+  private keys: Map<string, Set<number>> | null = new Map();
+  add(holder: number, value: string): void {
+    if (!this.keys || value.trim() === '') return;
+    const object = jsonObject(value);
+    if (!object) this.keys = null;
+    else for (const key of Object.keys(object)) this.keys.set(key, (this.keys.get(key) ?? new Set()).add(holder));
+  }
+  /** Each key with how many have it, in the order they first appear. None when the field is not JSON. */
+  list(): { key: string; count: number }[] {
+    return [...(this.keys ?? [])].map(([key, holders]) => ({ key, count: holders.size }));
+  }
+}
+
 /** Counts how often each spelling of something turns up, to show the most common. */
 class Spellings {
   private readonly counts = new Map<string, number>();
@@ -96,8 +114,7 @@ interface Field {
   name: Spellings;
   holders: Set<number>;
   values: Map<string, { spellings: Spellings; holders: Set<number> }>;
-  /** Each JSON key, and what has it, while every value so far is a JSON object; null once one is not. */
-  keys: Map<string, Set<number>> | null;
+  keys: JsonKeys;
 }
 
 /** Collects values per field: field, then value, then what has it. */
@@ -110,7 +127,7 @@ class Tally {
     const id = `${namespace === undefined ? '' : fold(namespace)}\u0000${fold(name)}`;
     let field = this.fields.get(id);
     if (!field) {
-      field = { ...(namespace !== undefined ? { namespace: new Spellings() } : {}), name: new Spellings(), holders: new Set(), values: new Map(), keys: new Map() };
+      field = { ...(namespace !== undefined ? { namespace: new Spellings() } : {}), name: new Spellings(), holders: new Set(), values: new Map(), keys: new JsonKeys() };
       this.fields.set(id, field);
     }
     if (namespace !== undefined) field.namespace?.add(namespace.trim());
@@ -125,11 +142,7 @@ class Tally {
     }
     entry.spellings.add(shown.length > LONGEST_VALUE ? `${shown.slice(0, LONGEST_VALUE - 1)}…` : shown);
     entry.holders.add(holder);
-    if (field.keys && shown !== '') {
-      const object = jsonObject(shown);
-      if (!object) field.keys = null;
-      else for (const key of Object.keys(object)) field.keys.set(key, (field.keys.get(key) ?? new Set()).add(holder));
-    }
+    field.keys.add(holder, shown);
   }
 
   addMetafields(holder: number, metafields: Metafield[] | undefined): void {
@@ -141,6 +154,7 @@ class Tally {
     return [...this.fields.values()]
       .map((f): FieldSummary => {
         const spellings = f.name.list();
+        const keys = f.keys.list();
         return {
           ...(f.namespace ? { namespace: f.namespace.list()[0] ?? '' } : {}),
           name: spellings[0] ?? '',
@@ -152,9 +166,7 @@ class Tally {
             .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, 'en', { numeric: true }))
             .slice(0, TOP),
           // Most used first; keys used as often stay in the order they first appear.
-          ...(f.keys?.size
-            ? { keys: [...f.keys.entries()].map(([key, holders]) => ({ key, count: holders.size })).sort((a, b) => b.count - a.count) }
-            : {}),
+          ...(keys.length ? { keys: keys.sort((a, b) => b.count - a.count) } : {}),
         };
       })
       .sort((a, b) =>

@@ -7,7 +7,7 @@ import { env, setup } from './setup.js';
 import { version } from './version.js';
 import type { Flags } from './types.js';
 
-/** The page's port when none is given. The email builder's preview uses 4321, so both can run at once. */
+/** The page's port when none is given. */
 const DEFAULT_PORT = 4322;
 
 const HELP = `Usage: ${TOOL} start

@@ -7,12 +7,12 @@ import { countProducts } from './catalog.js';
 import { failure, success, warning } from './color.js';
 import {
   DEFAULT_ENV, TOOL, assertName, display, ensureIgnored, envFilePath, existingWorkspace, listEnvNames, loadConfig,
-  parseEnvFile, resolveWorkspace, selectedEnvName, setActiveEnv, text,
+  noSuchEnv, parseEnvFile, resolveWorkspace, selectedEnvName, setActiveEnv, text,
 } from './config.js';
 import type { Flags } from './types.js';
 
 /** Accepts a bare hash or the API path BigCommerce shows, e.g. https://api.bigcommerce.com/stores/abc123/v3/ */
-export function parseStoreHash(input: string): string {
+function parseStoreHash(input: string): string {
   const trimmed = input.trim();
   return /stores\/([a-z0-9]+)/i.exec(trimmed)?.[1] ?? trimmed.replace(/^\/+|\/+$/g, '');
 }
@@ -24,7 +24,7 @@ type Screen = NodeJS.WritableStream & { columns?: number };
  * screen, typed or pasted: an access token is a password to the store, and a
  * terminal is often shared or recorded.
  */
-export function prompter(keyboard: NodeJS.ReadableStream = process.stdin, screen: Screen = process.stdout) {
+function prompter(keyboard: NodeJS.ReadableStream = process.stdin, screen: Screen = process.stdout) {
   // Keys show up only because readline writes them back out, so everything it writes goes through here, where it can be dropped.
   let hidden = false;
   const output = new Writable({
@@ -58,7 +58,7 @@ export function prompter(keyboard: NodeJS.ReadableStream = process.stdin, screen
  * Asks for (or takes from flags) one store's credentials, saves them as the
  * named environment and tests the connection. Returns false if the user backed out.
  */
-export async function saveEnvironment(flags: Flags, name: string): Promise<boolean> {
+async function saveEnvironment(flags: Flags, name: string): Promise<boolean> {
   assertName(name);
   const root = resolveWorkspace();
   const envFile = envFilePath(root, name);
@@ -161,11 +161,7 @@ function use(root: string, name: string | undefined): void {
   if (!name) throw new Error(`Name the environment to switch to, for example: ${TOOL} env use staging`);
   assertName(name);
   const names = listEnvNames(root);
-  if (!names.includes(name)) {
-    throw new Error(
-      `No environment called "${name}".${names.length ? ` You have: ${names.join(', ')}.` : ''}\nCreate it with: ${TOOL} env add ${name}`,
-    );
-  }
+  if (!names.includes(name)) throw noSuchEnv(name, names);
   setActiveEnv(root, name);
   console.log(`${success(`Now using ${name}: ${describe(root, name)}.`)}\nThe page reads it until you switch again.`);
 }

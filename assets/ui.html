@@ -634,7 +634,7 @@
 
   function sortWords(column) {
     if (column.type === 'id' || column.type === 'price') return ['low to high', 'high to low'];
-    if (column.type === 'status') return column.heading === 'Visibility' ? ['visible first', 'hidden first'] : ['unflagged first', 'flagged first'];
+    if (column.type === 'status') return column.key === 'visibility' ? ['visible first', 'hidden first'] : ['unflagged first', 'flagged first'];
     return ['A to Z', 'Z to A'];
   }
 
@@ -664,7 +664,7 @@
       const badges = Array.isArray(value) ? value : [];
       td = el('td', { className: classes }, badges.length
         ? badges.map((b) => el('span', { className: 'badge', textContent: b }))
-        : el('span', { className: 'visible-text', textContent: column.heading === 'Visibility' ? 'Visible' : '' }));
+        : el('span', { className: 'visible-text', textContent: column.key === 'visibility' ? 'Visible' : '' }));
     } else {
       td = el('td', { className: classes, textContent: column.type === 'price' ? price(typeof value === 'number' ? value : null) : String(value ?? '') });
     }

@@ -4,7 +4,7 @@
 // compared the way the summary groups them, so every count in the summary is
 // exactly what is listed.
 import type { Catalog } from './cache.js';
-import { KINDS, LONGEST_VALUE, fold, jsonObject, type Kind } from './summary.js';
+import { JsonKeys, KINDS, LONGEST_VALUE, fold, jsonObject, type Kind } from './summary.js';
 import type { Metafield, Variant } from './types.js';
 
 /** A custom field (by name) or a metafield (by namespace and key) on one kind of thing. */
@@ -50,7 +50,7 @@ export interface Table {
 }
 
 /** "season (erp)" for a metafield, the name alone for a custom field. */
-export const fieldLabel = (field: FieldRef): string => (field.kind === 'cf' ? field.name : `${field.name} (${field.namespace ?? ''})`);
+const fieldLabel = (field: FieldRef): string => (field.kind === 'cf' ? field.name : `${field.name} (${field.namespace ?? ''})`);
 
 /** What a field's page is showing, in words: "Products with season (erp)", "Variants where colour (erp) is Red". */
 export function describeShow(field: FieldRef, show: Show): string {
@@ -68,22 +68,15 @@ function sameValue(value: string, chosen: string): boolean {
   return a === b;
 }
 
-/** One key's value as text: a string as it is, anything nested as compact JSON, nothing for null or a missing key. */
-export const partText = (value: unknown): string =>
-  value === undefined || value === null ? '' : typeof value === 'string' ? value : typeof value === 'object' ? JSON.stringify(value) : String(value);
+/** One key's value as text: a string as it is, anything else as JSON (null, numbers, anything nested), nothing for a missing key. */
+const partText = (value: unknown): string =>
+  value === undefined ? '' : typeof value === 'string' ? value : JSON.stringify(value);
 
-/** When every value a field has is a JSON object, their keys, in the order they first appear. Otherwise none. */
+/** A JSON field's keys, in the order they first appear; none for a field that is not JSON. */
 function jsonKeys(items: Item[]): string[] {
-  const keys = new Set<string>();
-  for (const item of items) {
-    for (const value of item.values) {
-      if (value.trim() === '') continue;
-      const object = jsonObject(value);
-      if (!object) return [];
-      for (const key of Object.keys(object)) keys.add(key);
-    }
-  }
-  return [...keys];
+  const keys = new JsonKeys();
+  for (const item of items) for (const value of item.values) keys.add(item.id, value);
+  return keys.list().map((k) => k.key);
 }
 
 const amount = (n: unknown): number | null => (typeof n === 'number' && Number.isFinite(n) ? n : null);
@@ -121,7 +114,7 @@ function productTable(catalog: Catalog, field: FieldRef): KindTable {
       { key: 'sku', heading: 'SKU', type: 'mono' },
       { key: 'price', heading: 'Price', type: 'price', role: 'price' },
       { key: 'sale', heading: 'Sale price', type: 'price', prefix: 'Sale ' },
-      { key: 'status', heading: 'Visibility', type: 'status' },
+      { key: 'visibility', heading: 'Visibility', type: 'status' },
     ],
     csvHeaders: ['id', 'name', 'sku', 'price', 'sale_price', 'url', 'visible'],
     items: catalog.products.map((p) => {
@@ -134,7 +127,7 @@ function productTable(catalog: Catalog, field: FieldRef): KindTable {
         id: p.id,
         name: p.name,
         values,
-        cells: { id: p.id, name: p.name, sku: p.sku ?? '', price, sale, status: p.is_visible === false ? ['Hidden'] : [] },
+        cells: { id: p.id, name: p.name, sku: p.sku ?? '', price, sale, visibility: p.is_visible === false ? ['Hidden'] : [] },
         csv: [p.id, p.name, p.sku ?? '', formatPrice(price), formatPrice(sale), p.custom_url?.url ?? '', p.is_visible ?? ''],
       };
     }),
@@ -185,7 +178,7 @@ function categoryTable(catalog: Catalog, field: FieldRef): KindTable {
       { key: 'name', heading: 'Name', type: 'text', role: 'title' },
       { key: 'path', heading: 'URL', type: 'mono' },
       ...(several ? [{ key: 'tree', heading: 'Tree', type: 'text', prefix: 'Tree ' } as Column] : []),
-      { key: 'status', heading: 'Visibility', type: 'status' },
+      { key: 'visibility', heading: 'Visibility', type: 'status' },
     ],
     csvHeaders: ['id', 'name', 'url', 'tree', 'visible'],
     items: catalog.categories.map((c) => {
@@ -194,7 +187,7 @@ function categoryTable(catalog: Catalog, field: FieldRef): KindTable {
         id: c.id,
         name: c.name,
         values: metafieldValues(catalog.metafields.category.get(c.id), field),
-        cells: { id: c.id, name: c.name, path: c.path, tree, status: c.visible === false ? ['Hidden'] : [] },
+        cells: { id: c.id, name: c.name, path: c.path, tree, visibility: c.visible === false ? ['Hidden'] : [] },
         csv: [c.id, c.name, c.path, tree, c.visible ?? ''],
       };
     }),
@@ -269,7 +262,7 @@ export function tableFor(catalog: Catalog, variants: Variant[] | null, field: Fi
 // ---- Writing it out ---------------------------------------------------------------
 
 /** A price as it is shown: at least two decimal places, as many as it has up to four. No thousands separators, so spreadsheets read it as a number. */
-export const formatPrice = (n: number | null): string =>
+const formatPrice = (n: number | null): string =>
   n === null ? '' : n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 4, useGrouping: false });
 
 /** A CSV cell, quoted when it holds a comma, a quote or a line break. */
@@ -290,7 +283,7 @@ export function cellLines(column: Column, value: Cell | undefined): string[] {
       ? value.flatMap((v) => Object.entries(jsonObject(v) ?? {}).map(([k, part]) => `${k}: ${partText(part)}`))
       : [];
   }
-  if (column.type === 'status') return Array.isArray(value) && value.length ? value : [column.heading === 'Visibility' ? 'Visible' : ''];
+  if (column.type === 'status') return Array.isArray(value) && value.length ? value : [column.key === 'visibility' ? 'Visible' : ''];
   if (column.type === 'price') return [formatPrice(typeof value === 'number' ? value : null)];
   return [value === null || value === undefined ? '' : String(value)];
 }
